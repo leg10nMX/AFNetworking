@@ -257,7 +257,11 @@ NSCoding, NSCopying>
 ///---------------------------------
 /// @name Setting Progress Callbacks
 ///---------------------------------
-
+/**
+ Sets a callback to be called when a response has been received.
+ @param block A block object to be called when a response has been received. This block has no return value and takes one argument: the response sent by the server. This block is called once, and will execute on the main thread.
+ */
+-(void)setResponseReceivedBlock:(void (^)(NSURLResponse* response))block;
 /**
  Sets a callback to be called when an undetermined number of bytes have been uploaded to the server.
 
