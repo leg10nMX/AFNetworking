@@ -55,6 +55,8 @@ NSString * const AFNetworkingOperationFailingURLResponseErrorKey = @"AFNetworkin
 NSString * const AFNetworkingOperationDidStartNotification = @"com.alamofire.networking.operation.start";
 NSString * const AFNetworkingOperationDidFinishNotification = @"com.alamofire.networking.operation.finish";
 
+typedef void (^AFURLConnectionOperationFinishedLoadingBlock)();
+typedef void (^AFURLConnectionOperationFailedWithErrorBlock)(NSError* error);
 typedef void (^AFURLConnectionOperationResponseReceivedBlock)(NSURLResponse* response);
 typedef void (^AFURLConnectionOperationProgressBlock)(NSUInteger bytes, long long totalBytes, long long totalBytesExpected);
 typedef void (^AFURLConnectionOperationAuthenticationChallengeBlock)(NSURLConnection *connection, NSURLAuthenticationChallenge *challenge);
@@ -138,6 +140,8 @@ static BOOL AFSecKeyIsEqualToKey(SecKeyRef key1, SecKeyRef key2) {
 @property (readwrite, nonatomic, assign) NSStringEncoding responseStringEncoding;
 @property (readwrite, nonatomic, assign) long long totalBytesRead;
 @property (readwrite, nonatomic, assign) AFBackgroundTaskIdentifier backgroundTaskIdentifier;
+@property (readwrite, nonatomic, copy) AFURLConnectionOperationFailedWithErrorBlock failedWithError;
+@property (readwrite, nonatomic, copy) AFURLConnectionOperationFinishedLoadingBlock finishedLoading;
 @property (readwrite, nonatomic, copy) AFURLConnectionOperationResponseReceivedBlock responseReceived;
 @property (readwrite, nonatomic, copy) AFURLConnectionOperationProgressBlock uploadProgress;
 @property (readwrite, nonatomic, copy) AFURLConnectionOperationProgressBlock downloadProgress;
@@ -170,6 +174,8 @@ static BOOL AFSecKeyIsEqualToKey(SecKeyRef key1, SecKeyRef key2) {
 @synthesize shouldUseCredentialStorage = _shouldUseCredentialStorage;
 @synthesize userInfo = _userInfo;
 @synthesize backgroundTaskIdentifier = _backgroundTaskIdentifier;
+@synthesize finishedLoading = _finishedLoading;
+@synthesize failedWithError = _failedWithError;
 @synthesize responseReceived = _responseReceived;
 @synthesize uploadProgress = _uploadProgress;
 @synthesize downloadProgress = _downloadProgress;
@@ -380,6 +386,12 @@ static BOOL AFSecKeyIsEqualToKey(SecKeyRef key1, SecKeyRef key2) {
     [self.lock unlock];
 }
 #endif
+- (void)setFinishedLoadingBlock:(void (^)())finishedLoading {
+    self.finishedLoading = finishedLoading;
+}
+- (void)setFailedWithErrorBlock:(void (^)(NSError*))failedWithError {
+    self.failedWithError = failedWithError;
+}
 - (void)setResponseReceivedBlock:(void (^)(NSURLResponse *))block {
     self.responseReceived = block;
 }
@@ -774,6 +786,12 @@ didReceiveResponse:(NSURLResponse *)response
     [self finish];
     
     self.connection = nil;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.finishedLoading) {
+            self.finishedLoading();
+        }
+    });
 }
 
 - (void)connection:(NSURLConnection __unused *)connection
@@ -786,6 +804,12 @@ didReceiveResponse:(NSURLResponse *)response
     [self finish];
     
     self.connection = nil;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.failedWithError) {
+            self.failedWithError(error);
+        }
+    });
 }
 
 - (NSCachedURLResponse *)connection:(NSURLConnection *)connection
